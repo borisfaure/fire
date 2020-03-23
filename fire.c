@@ -1,60 +1,63 @@
 #include <errno.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+typedef uint8_t u8;
+
 unsigned short _width;
 unsigned short _height;
 char *_space_line = NULL;
-char *_grid = NULL;
+u8 *_grid = NULL;
 
-#define DIE(STR)  do { \
-     perror(STR);      \
-     exit(1);          \
+#define DIE(STR)  do {   \
+     perror(STR);        \
+     exit(EXIT_FAILURE); \
 } while (0)
 
 
 #define NB_COLORS  37
 const char *bg_colors[NB_COLORS] = {
-     "\033[48;2;7;7;7m",        // 0x07,0x07,0x07
-     "\033[48;2;31;7;7m",       // 0x1F,0x07,0x07
-     "\033[48;2;47;7;7m",       // 0x2F,0x07,0x07
-     "\033[48;2;71;15;7m",      // 0x47,0x0F,0x07
-     "\033[48;2;87;23;7m",      // 0x57,0x17,0x07
-     "\033[48;2;103;23;7m",     // 0x67,0x1F,0x07
-     "\033[48;2;119;23;7m",     // 0x77,0x1F,0x07
-     "\033[48;2;143;39;7m",     // 0x8F,0x27,0x07
-     "\033[48;2;159;47;7m",     // 0x9F,0x2F,0x07
-     "\033[48;2;175;63;7m",     // 0xAF,0x3F,0x07
-     "\033[48;2;191;71;7m",     // 0xBF,0x47,0x07
-     "\033[48;2;199;71;7m",     // 0xC7,0x47,0x07
-     "\033[48;2;223;79;7m",     // 0xDF,0x4F,0x07
-     "\033[48;2;223;87;7m",     // 0xDF,0x57,0x07
-     "\033[48;2;223;87;7m",     // 0xDF,0x57,0x07
-     "\033[48;2;215;95;7m",     // 0xD7,0x5F,0x07
-     "\033[48;2;215;95;7m",     // 0xD7,0x5F,0x07
-     "\033[48;2;215;103;15m",   // 0xD7,0x65,0x0F
-     "\033[48;2;207;111;15m",   // 0xCF,0x6F,0x0F
-     "\033[48;2;207;119;15m",   // 0xCF,0x77,0x0F
-     "\033[48;2;207;127;15m",   // 0xCF,0x7F,0x0F
-     "\033[48;2;207;135;23m",   // 0xCF,0x87,0x17
-     "\033[48;2;199;135;23m",   // 0xC7,0x87,0x17
-     "\033[48;2;199;143;23m",   // 0xC7,0x8F,0x17
-     "\033[48;2;199;151;31m",   // 0xC7,0x97,0x1F
-     "\033[48;2;191;159;31m",   // 0xBF,0x9F,0x1F
-     "\033[48;2;191;159;31m",   // 0xBF,0x9F,0x1F
-     "\033[48;2;191;167;39m",   // 0xBF,0xA7,0x27
-     "\033[48;2;191;167;39m",   // 0xBF,0xA7,0x27
-     "\033[48;2;191;175;47m",   // 0xBF,0xAF,0x2F
-     "\033[48;2;183;175;47m",   // 0xB7,0xAF,0x2F
-     "\033[48;2;183;183;47m",   // 0xB7,0xB7,0x2F
-     "\033[48;2;183;183;55m",   // 0xB7,0xB7,0x37
-     "\033[48;2;207;207;111m",  // 0xCF,0xCF,0x6F
-     "\033[48;2;223;223;159m",  // 0xDF,0xDF,0x9F
-     "\033[48;2;239;239;199m",  // 0xEF,0xEF,0xC7
-     "\033[48;2;255;255;255m",  // 0xFF,0xFF,0xFF
+     "\033[48;2;7;7;7m ",        // 0x07,0x07,0x07
+     "\033[48;2;31;7;7m ",       // 0x1F,0x07,0x07
+     "\033[48;2;47;7;7m ",       // 0x2F,0x07,0x07
+     "\033[48;2;71;15;7m ",      // 0x47,0x0F,0x07
+     "\033[48;2;87;23;7m ",      // 0x57,0x17,0x07
+     "\033[48;2;103;23;7m ",     // 0x67,0x1F,0x07
+     "\033[48;2;119;23;7m ",     // 0x77,0x1F,0x07
+     "\033[48;2;143;39;7m ",     // 0x8F,0x27,0x07
+     "\033[48;2;159;47;7m ",     // 0x9F,0x2F,0x07
+     "\033[48;2;175;63;7m ",     // 0xAF,0x3F,0x07
+     "\033[48;2;191;71;7m ",     // 0xBF,0x47,0x07
+     "\033[48;2;199;71;7m ",     // 0xC7,0x47,0x07
+     "\033[48;2;223;79;7m ",     // 0xDF,0x4F,0x07
+     "\033[48;2;223;87;7m ",     // 0xDF,0x57,0x07
+     "\033[48;2;223;87;7m ",     // 0xDF,0x57,0x07
+     "\033[48;2;215;95;7m ",     // 0xD7,0x5F,0x07
+     "\033[48;2;215;95;7m ",     // 0xD7,0x5F,0x07
+     "\033[48;2;215;103;15m ",   // 0xD7,0x65,0x0F
+     "\033[48;2;207;111;15m ",   // 0xCF,0x6F,0x0F
+     "\033[48;2;207;119;15m ",   // 0xCF,0x77,0x0F
+     "\033[48;2;207;127;15m ",   // 0xCF,0x7F,0x0F
+     "\033[48;2;207;135;23m ",   // 0xCF,0x87,0x17
+     "\033[48;2;199;135;23m ",   // 0xC7,0x87,0x17
+     "\033[48;2;199;143;23m ",   // 0xC7,0x8F,0x17
+     "\033[48;2;199;151;31m ",   // 0xC7,0x97,0x1F
+     "\033[48;2;191;159;31m ",   // 0xBF,0x9F,0x1F
+     "\033[48;2;191;159;31m ",   // 0xBF,0x9F,0x1F
+     "\033[48;2;191;167;39m ",   // 0xBF,0xA7,0x27
+     "\033[48;2;191;167;39m ",   // 0xBF,0xA7,0x27
+     "\033[48;2;191;175;47m ",   // 0xBF,0xAF,0x2F
+     "\033[48;2;183;175;47m ",   // 0xB7,0xAF,0x2F
+     "\033[48;2;183;183;47m ",   // 0xB7,0xB7,0x2F
+     "\033[48;2;183;183;55m ",   // 0xB7,0xB7,0x37
+     "\033[48;2;207;207;111m ",  // 0xCF,0xCF,0x6F
+     "\033[48;2;223;223;159m ",  // 0xDF,0xDF,0x9F
+     "\033[48;2;239;239;199m ",  // 0xEF,0xEF,0xC7
+     "\033[48;2;255;255;255m ",  // 0xFF,0xFF,0xFF
 };
 
 static ssize_t
@@ -90,11 +93,52 @@ _go_to(int x, int y)
 }
 
 static void
+_spread_fire(int x, int y)
+{
+     u8 *old_value;
+     u8 new_value;
+     u8 r = rand() % 3;
+     int pos;
+
+     pos = x + y * _width + r;
+     if (pos < 0)
+         pos = 0;
+     old_value = _grid + pos ;
+     new_value = _grid[x + (y + 1) * _width] - (r & 1);
+     if (new_value >= NB_COLORS)
+       new_value = 0;
+
+     if (*old_value != new_value)
+       {
+          *old_value = new_value;
+          _go_to(pos % _width, pos / _width);
+          xwrite(bg_colors[new_value], strlen(bg_colors[new_value]));
+       }
+}
+
+
+static void
+_do_fire(void)
+{
+   int x, y;
+
+   /* for each column */
+   for(x = 0; x < _width; x++)
+     {
+        /* from bottom to top, spread the fire */
+        for (y = _height -2; y >= 0; y--)
+          {
+             _spread_fire(x, y);
+          }
+     }
+}
+
+static void
 init_screen(void)
 {
    int i;
-   char *last_line = _grid + _width * (_height - 1);
-   const int white_color_idx = NB_COLORS -1;
+   u8 *last_line = _grid + _width * (_height - 1);
+   const u8 white_color_idx = NB_COLORS -1;
    const char *esc_clear_screen = "\033[2J";
    const char *esc_color_black_bg = "\033[48;5;232m";
    const char *esc_color_black_fg = "\033[38;5;232m";
@@ -104,8 +148,9 @@ init_screen(void)
    xwrite(esc_clear_screen, strlen(esc_clear_screen));
 
    /* last line is white line */
-   xwrite(bg_colors[white_color_idx], strlen(bg_colors[white_color_idx]));
    _go_to(0, _height - 1);
+   xwrite(bg_colors[white_color_idx],
+          strlen(bg_colors[white_color_idx]) -1); // skip space in color
    xwrite(_space_line, _width);
    for (i = 0; i < _width; i++)
      last_line[i] = white_color_idx;
@@ -133,13 +178,18 @@ run(void)
      _space_line[i] = ' ';
 
    free(_grid);
-   _grid = calloc(_width * _height, sizeof(char));
+   _grid = calloc(_width * _height, sizeof(u8));
    if (!_grid)
      DIE("calloc");
 
    init_screen();
 
-   return 0;
+   while (1)
+     {
+        _do_fire();
+     }
+
+   return EXIT_SUCCESS;
 }
 
 int main (void)
