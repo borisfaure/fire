@@ -7,7 +7,8 @@
 
 unsigned short _width;
 unsigned short _height;
-char *_line = NULL;
+char *_space_line = NULL;
+char *_grid = NULL;
 
 #define DIE(STR)  do { \
      perror(STR);      \
@@ -91,6 +92,9 @@ _go_to(int x, int y)
 static void
 init_screen(void)
 {
+   int i;
+   char *last_line = _grid + _width * (_height - 1);
+   const int white_color_idx = NB_COLORS -1;
    const char *esc_clear_screen = "\033[2J";
    const char *esc_color_black_bg = "\033[48;5;232m";
    const char *esc_color_black_fg = "\033[38;5;232m";
@@ -98,9 +102,13 @@ init_screen(void)
    xwrite(esc_color_black_bg, strlen(esc_color_black_bg));
    xwrite(esc_color_black_fg, strlen(esc_color_black_fg));
    xwrite(esc_clear_screen, strlen(esc_clear_screen));
-   xwrite(bg_colors[NB_COLORS-1], strlen(bg_colors[NB_COLORS-1]));
+
+   /* last line is white line */
+   xwrite(bg_colors[white_color_idx], strlen(bg_colors[white_color_idx]));
    _go_to(0, _height - 1);
-   xwrite(_line, _width);
+   xwrite(_space_line, _width);
+   for (i = 0; i < _width; i++)
+     last_line[i] = white_color_idx;
 }
 
 
@@ -117,13 +125,17 @@ run(void)
    _width = w.ws_col;
    _height = w.ws_row;
 
-   if (_line)
-     free(_line);
-   _line = malloc(sizeof(char) * _width);
-   if (!_line)
+   free(_space_line);
+   _space_line = malloc(sizeof(char) * _width);
+   if (!_space_line)
      DIE("malloc");
    for (i = 0; i < _width; i++)
-     _line[i] = ' ';
+     _space_line[i] = ' ';
+
+   free(_grid);
+   _grid = calloc(_width * _height, sizeof(char));
+   if (!_grid)
+     DIE("calloc");
 
    init_screen();
 
