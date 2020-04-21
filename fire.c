@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <time.h>
 #include <unistd.h>
 
 typedef uint8_t u8;
@@ -116,9 +117,27 @@ _spread_fire(int x, int y)
        }
 }
 
+static void
+_display_fps(double fps)
+{
+   char buf[64] = {};
+   int len;
+
+   /* move to last line */
+   len = snprintf(buf, sizeof(buf), "\033[%dH", _height); // Positions start at 1
+   xwrite(buf, len);
+
+   /* color fg white color, bg black, clear line */
+   const char *esc= "\033[38;5;232m\033[48;5;255m\033[2K";
+   xwrite(esc, strlen(esc));
+
+   len = snprintf(buf, sizeof(buf), "%dx%d -> %6.1f fps",
+                  _width, _height, fps);
+   xwrite(buf, len);
+}
 
 static void
-_do_fire(void)
+_do_fire(double fps)
 {
    int x, y;
 
@@ -131,6 +150,7 @@ _do_fire(void)
              _spread_fire(x, y);
           }
      }
+   _display_fps(fps);
 }
 
 static void
@@ -162,7 +182,10 @@ static int
 run(void)
 {
    struct winsize w;
+   struct timespec start, end;
+   clockid_t clk;
    int i;
+   double fps = 0.0;
 
    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1)
      DIE("failed to get terminal size with ioctl");
@@ -184,9 +207,27 @@ run(void)
 
    init_screen();
 
+   clk = CLOCK_MONOTONIC_COARSE;
+   if (clock_gettime(clk, &start))
+       DIE("clock_gettime");
+
    while (1)
      {
-        _do_fire();
+        int64_t delta_ns;
+
+        _do_fire(fps);
+
+        if (clock_gettime(clk, &end))
+            DIE("clock_gettime");
+
+        /* compute fps */
+        delta_ns = end.tv_nsec - start.tv_nsec
+           + 1000000000 * (end.tv_sec - start.tv_sec);
+
+        if (delta_ns)
+          fps = 1000000000.0 / ((double)delta_ns);
+
+        start = end;
      }
 
    return EXIT_SUCCESS;
