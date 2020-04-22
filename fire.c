@@ -118,7 +118,7 @@ _spread_fire(int x, int y)
 }
 
 static void
-_display_fps(double fps)
+_display_fps(double fps, double avg)
 {
    char buf[64] = {};
    int len;
@@ -131,13 +131,13 @@ _display_fps(double fps)
    const char *esc= "\033[38;5;232m\033[48;5;255m\033[2K";
    xwrite(esc, strlen(esc));
 
-   len = snprintf(buf, sizeof(buf), "%dx%d -> %6.1f fps",
-                  _width, _height, fps);
+   len = snprintf(buf, sizeof(buf), "%dx%d -> %6.1f fps (avg: %6.1f fps)",
+                  _width, _height, fps, avg);
    xwrite(buf, len);
 }
 
 static void
-_do_fire(double fps)
+_do_fire(double fps, double avg)
 {
    int x, y;
 
@@ -150,7 +150,7 @@ _do_fire(double fps)
              _spread_fire(x, y);
           }
      }
-   _display_fps(fps);
+   _display_fps(fps, avg);
 }
 
 static void
@@ -182,10 +182,11 @@ static int
 run(void)
 {
    struct winsize w;
-   struct timespec start, end;
+   struct timespec first, start, end;
    clockid_t clk;
    int i;
-   double fps = 0.0;
+   double fps = 0.0, avg = 0.0;
+   uint64_t n = 0;
 
    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1)
      DIE("failed to get terminal size with ioctl");
@@ -208,14 +209,15 @@ run(void)
    init_screen();
 
    clk = CLOCK_MONOTONIC_COARSE;
-   if (clock_gettime(clk, &start))
+   if (clock_gettime(clk, &first))
        DIE("clock_gettime");
+   start = first;
 
    while (1)
      {
         int64_t delta_ns;
 
-        _do_fire(fps);
+        _do_fire(fps, avg);
 
         if (clock_gettime(clk, &end))
             DIE("clock_gettime");
@@ -227,6 +229,10 @@ run(void)
         if (delta_ns)
           fps = 1000000000.0 / ((double)delta_ns);
 
+        n++;
+        delta_ns = end.tv_nsec - first.tv_nsec
+           + 1000000000 * (end.tv_sec - first.tv_sec);
+        avg = n * 1000000000.0 / ((double)delta_ns);
         start = end;
      }
 
