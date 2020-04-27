@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,11 +11,13 @@
 /* Based on http://fabiensanglard.net/doom_fire_psx/index.html */
 typedef uint8_t u8;
 
-unsigned short _width;
-unsigned short _height;
-char *_space_line = NULL;
-u8 *_grid = NULL;
-int _fps_cap = -1;
+static unsigned short _width;
+static unsigned short _height;
+static char *_space_line = NULL;
+static u8 *_grid = NULL;
+static int _fps_cap = -1;
+static char *_argv[3];
+
 
 #define DIE(STR)  do {   \
      perror(STR);        \
@@ -254,10 +257,32 @@ run(void)
    return EXIT_SUCCESS;
 }
 
+static void
+_on_sig_winch(int signo)
+{
+   (void)signo;
+
+   execvp(_argv[0], _argv);
+   DIE("execvp");
+}
+
 int main (int argc, char *argv[])
 {
+   struct sigaction sa;
+
+   _argv[0] = argv[0];
+   _argv[1] = _argv[2] = NULL;
    if (argc == 2)
-     _fps_cap = atoi(argv[1]);
+     {
+        _fps_cap = atoi(argv[1]);
+        _argv[1] = argv[1];
+     }
+
+   sigemptyset(&sa.sa_mask);
+   sa.sa_flags = 0;
+   sa.sa_handler = _on_sig_winch;
+   if (sigaction(SIGWINCH, &sa, NULL) == -1)
+     DIE("sigaction");
 
    return run();
 }
