@@ -14,6 +14,7 @@ unsigned short _width;
 unsigned short _height;
 char *_space_line = NULL;
 u8 *_grid = NULL;
+int _fps_cap = -1;
 
 #define DIE(STR)  do {   \
      perror(STR);        \
@@ -187,6 +188,7 @@ run(void)
    int i;
    double fps = 0.0, avg = 0.0;
    uint64_t n = 0;
+   int64_t over = 0;
 
    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1)
      DIE("failed to get terminal size with ioctl");
@@ -226,20 +228,36 @@ run(void)
         delta_ns = end.tv_nsec - start.tv_nsec
            + 1000000000 * (end.tv_sec - start.tv_sec);
 
+        if (_fps_cap > 0)
+          {
+            int us = ((1000000000/_fps_cap) - delta_ns) / 1000;
+            if (us > over)
+              {
+                usleep(us - over);
+                over = 0;
+                delta_ns += (us - over) * 1000;
+                end.tv_nsec += (us - over) * 1000;
+              }
+            else
+              over -= us;
+          }
         if (delta_ns)
           fps = 1000000000.0 / ((double)delta_ns);
 
-        n++;
         delta_ns = end.tv_nsec - first.tv_nsec
            + 1000000000 * (end.tv_sec - first.tv_sec);
-        avg = n * 1000000000.0 / ((double)delta_ns);
+        avg = ((double)n * 1000000000.0) / ((double)delta_ns);
         start = end;
+        n++;
      }
 
    return EXIT_SUCCESS;
 }
 
-int main (void)
+int main (int argc, char *argv[])
 {
+   if (argc == 2)
+     _fps_cap = atoi(argv[1]);
+
    return run();
 }
